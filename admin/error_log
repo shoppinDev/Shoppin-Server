@@ -1,0 +1,1 @@
+[17-Feb-2016 17:14:14 Asia/Calcutta] PHP Fatal error:  Call to undefined method CI_Footer::getadmin() in /home/ibizsm8j/public_html/dealwala/admin/application/views/include/sidebar_left.php on line 26
