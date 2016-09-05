@@ -1,4 +1,5 @@
 <?php
+date_default_timezone_set('Asia/Kolkata');
 	if(!isset($_GET['webmethod']))
 	{
 		die("Please specify webmethod");
@@ -122,7 +123,7 @@
 		break;
 		
 		
-		case "forgotpassword":
+		case "forgotpassword": 
 			$email=$_GET['email'];
  			$query = "SELECT * from deal_customer where customer_email = '".$email."' ";
 			$result =  $link->query($query) or die('Errant query:  '.$query);	
@@ -142,6 +143,7 @@
 						</div>';
 		  
 						$to = $bike['customer_email']; 
+						 
 						$subject  = 'Forgot Password';  
 						$headers  = 'MIME-Version: 1.0' . "\r\n";
 						$headers .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
@@ -149,7 +151,7 @@
 									'Reply-To:  info@ibizsolutions.net' . "\r\n" .
 									'X-Mailer: PHP/' . phpversion();
 						//$headers .= 'BCc: amvisolution@gmail.com' . "\r\n";
-						mail($to,$subject,$message,$headers);  
+						$checkmail = mail($to,$subject,$message,$headers);   
 						$overview = 'Email has been sent to your registered Email Address';
 				}
 			} else {
@@ -188,13 +190,23 @@
 		
 		case "changepassword":
 			$id = $_GET['id'];
-			$pass = $_GET['password'];	
-			$query = "UPDATE deal_customer SET customer_password = '".$pass."'  WHERE customer_id  = '".$id."' ";
-			$result =  $link->query($query) or die('Errant query:  '.$query);	
-			$bikes = array();
-			$bikes[] = 'PASSWORD UPDATE SUCCESSFULLY';
-			header('Content-type: application/json');
-			echo json_encode(array('data'=>$bikes));
+			$pass = $_GET['password'];
+			$curr_pass = $_GET['curr_pass'];
+			$query1 = " SELECT * from deal_customer where customer_id = '".$id."' and customer_password = '".$curr_pass."'";
+			$result1 =  $link->query($query1) or die('Errant query:  '.$query1);
+			if($result1->num_rows > 0){	
+				$query = "UPDATE deal_customer SET customer_password = '".$pass."'  WHERE customer_id  = '".$id."' "; 
+				$result =  $link->query($query) or die('Errant query:  '.$query);	
+				$bikes = array();
+				$bikes[] = 'PASSWORD UPDATE SUCCESSFULLY';
+				header('Content-type: application/json');
+				echo json_encode(array('data'=>$bikes));
+			}else{
+				$bikes = array();
+				$bikes[] = 'YOUR CURRENT PASSWORD IS WRONG';
+				header('Content-type: application/json');
+				echo json_encode(array('data'=>$bikes));
+			}
 		break;
 		
 		case "deal_detail":
@@ -226,7 +238,7 @@
                            
                            while($roee = $result->fetch_assoc()){
 								$asd['dealid'] = $roee['deal_id'];
-							    $asd['merchantid'] = $roee['merchant_id'];
+							        $asd['merchantid'] = $roee['merchant_id'];
 								$asd['shopid'] = $roee['shop_id'];
 								$asd['dealcategory'] = $roee['deal_category'];
 								$asd['dealsubcategory'] = $roee['deal_subcategory'];
@@ -280,9 +292,7 @@
 				left join deal_subcategory ds on ds.subcategory_id = d.deal_subcategory
 				left join deal_merchant dm on dm.merchant_id = d.merchant_id
 				left join deal_merchantshops ms on ms.shop_id = d.shop_id
-				where d.deal_id <> 0 and  d.is_active = 1  and d.deal_startdate <= NOW() and d.deal_enddate >= NOW() and ( 3959 * ACOS( COS( RADIANS($lat) ) * COS( RADIANS( ms.shop_latitude ) ) 
-			* COS( RADIANS(ms.shop_longitude) - RADIANS($long)) + SIN(RADIANS($lat)) 
-			* SIN( RADIANS(ms.shop_latitude)))) <= 5 ";
+				where d.deal_id <> 0 and  d.is_active = 1  and d.deal_startdate <= NOW() and d.deal_enddate >= NOW() ";
 		} else {
 			$query = " SELECT d.*,dc.category_name,ds.subcategory_name,dm.merchant_name,ms.shop_name,ms.shop_addres, ( 3959 * ACOS( COS( RADIANS($lat) ) * COS( RADIANS( ms.shop_latitude ) ) 
 			* COS( RADIANS(ms.shop_longitude) - RADIANS($long)) + SIN(RADIANS($lat)) 
@@ -342,17 +352,32 @@
 			$customer_id = $_GET['customer_id'];
 			$deal_id = $_GET['deal_id'];
 			$amount = $_GET['amount'];
-			//$order_date = $_GET['order_date'];
+			
+			$shopid = $_GET['shop_id'];
 			//$order_status = $_GET['order_status'];
+			$query_shop = "SELECT * from deal_loyalty where find_in_set( ".$shopid." ,shops  ) ";
+			 
+			$result_shop =  $link->query($query_shop) or die('Errant query:  '.$query_shop);	 
+			$num_rows = $result_shop->num_rows;
+			if($num_rows > 0){
+				$status[] = '1';
+			}else{
+				$status[]= '0';
+			} 
 			
 		
 			$query = "INSERT INTO `deal_order` (`customer_id`, `deal_id`, `amount`, `order_date`) VALUES ('".$customer_id."', '".$deal_id."' , '".$amount."' , '".date("Y-m-d")."')";
 			 
 			$result =  $link->query($query) or die('Errant query:  '.$query);	
-			$bikes = array();
+			
 			$bikes[] = 'YOUR ORDER SUCCESSFULLY';
+			
+			
+			
+			$aaa[] = array('data'=>$bikes,'status'=>$status);
+			
 			header('Content-type: application/json');
-			echo json_encode(array('data'=>$bikes));
+			echo json_encode(array('data'=>$bikes,'status'=>$status));
 		break;
 		
 		
@@ -407,13 +432,81 @@
  			$query = " SELECT * from deal_customer where customer_id = '".$id."' ";
 			packupAndSend($query,$link);		
 		break;
-	
+		
+		case "my_reedem_count":
+			$id = $_GET['custemer_id'];
+			$merchantid = $_GET['merchant_id'];
+			$shop_id = $_GET['shop_id'];
+ 			$query 	=  "SELECT do.*, dm.merchant_id from deal_order do 
+						INNER join deal_deals dd on dd.deal_id = do.deal_id 
+						INNER join deal_merchant dm on dm.merchant_id = dd.merchant_id
+						where do.customer_id = '".$id."' and dm.merchant_id = '".$merchantid."' ";  
+			$result =  $link->query($query) or die('Errant query:  '.$query); 
+			$num_rows = $result->num_rows; 
+
+			$querymerchant 	=  "SELECT sum(no_of_pins) as no_of_pins  from deal_loyalty  where merchant_id = '".$merchantid."' ";  
+			$resultmerchant =  $link->query($querymerchant) or die('Errant query:  '.$querymerchant); 
+			$num_rows_merchant = $resultmerchant->fetch_assoc(); 
+			/*$pins = $result->fetch_assoc();
+			$no_of_pins = '';
+			if($num_rows > 0){
+				$no_of_pins = $pins['no_of_pins'];
+			}*/
+			//$bikes[] = array( 'count' => $num_rows,'no_of_pins' => $no_of_pins );
+			$bikes[] = array( 'count' => $num_rows,'merchant_count' => $num_rows_merchant['no_of_pins'] );			
+			header('Content-type: application/json');
+			echo json_encode(array('data'=>$bikes)); 
+		break;
+		
+		case "my_loyalty_list":
+			$id = $_GET['custemer_id'];  
+ 			$query 	=  "SELECT  dm.merchant_id, dm.merchant_name,
+						( select SUM(dl.no_of_pins) as totalpins from deal_loyalty dl where dl.merchant_id = dm.merchant_id )  as totalpins
+						from deal_order do 
+						LEFT join deal_deals dd on dd.deal_id = do.deal_id 
+						LEFT join deal_loyalty dl on dl.shops = dd.shop_id  
+						LEFT join deal_merchant dm on dm.merchant_id = dd.merchant_id
+						where do.customer_id = '".$id."' group by  dm.merchant_id order by dm.merchant_name ASC ";  
+			$result =  $link->query($query) or die('Errant query:  '.$query);	
+			$bikes = array();
+			$num_rows = $result->num_rows; 
+			if($result->num_rows > 0){ 
+				while($roee = $result->fetch_assoc()) {
+					$asd['merchant_id'] = $roee['merchant_id'];
+					$asd['merchant_name'] = $roee['merchant_name'];
+					$asd['totalpins'] = $roee['totalpins'];
+					$asd['totalreedem'] = get_total_reedem($asd['merchant_id'],$id,$link);   
+					array_push($bikes,$asd);
+				}
+			}
+			header('Content-type: application/json');
+			echo json_encode(array('data'=>$bikes));
+			//packupAndSend($query,$link);	
+			
+		break;
+		
+		/*case "my_loyalty_list":
+			$id = $_GET['custemer_id'];  
+ 			$query 	=  "SELECT dl.no_of_pins, dm.merchant_id, dm.merchant_name,
+						( select SUM(dl.no_of_pins) as totalpins from deal_loyalty dl where dl.merchant_id = dm.merchant_id )  as totalpins
+						from deal_merchant dm 
+						INNER join deal_loyalty dl on dl.merchant_id = dm.merchant_id   
+						group by  dm.merchant_id ";   
+			packupAndSend($query,$link);	
+			/*$result =  $link->query($query) or die('Errant query:  '.$query); 
+			$num_rows = $result->num_rows;
+			$bikes[] = array( 'count' => $num_rows );			
+			header('Content-type: application/json');
+			echo json_encode(array('data'=>$bikes)); 
+		break;*/
+		
 		case "redemmed_offers":
 			$id = $_GET['id'];
  			$query = "SELECT d.*,dl.*,ds.shop_name,ds.shop_addres, ds.shop_latitude,ds.shop_longitude  from deal_order d 
 						left join deal_deals dl on dl.deal_id = d.deal_id
 						left join deal_merchantshops ds on ds.shop_id = dl.shop_id
 						where d.customer_id = '".$id."' ";
+			
 			$result =  $link->query($query) or die('Errant query:  '.$query);	
 			$bikes = array();
 			$num_rows = $result->num_rows; 
@@ -462,6 +555,21 @@
 			$merchantid = $_GET['customer_id'];
 			$deal_id = $_GET['deal_id'];
 			$query = "INSERT INTO `deal_saveddeals` (`customer_id`,`deal_id` ) VALUES ('".$merchantid."' ,'".$deal_id."' );"; 
+			packupAndSend_register($query,$link);	
+		break;
+		
+		case "list_cart_deals":
+			$merchantid = $_GET['customer_id'];
+ 			$query = " SELECT da.*,dm.merchant_name from deal_addto_cart da 
+						INNER JOIN deal_merchant dm on dm.merchant_id = da.merchant_id
+						where da.id <> 0  and da.customer_id = '".$merchantid."' ";
+			packupAndSend($query,$link);		
+		break;
+		
+		case "save_deal_addto_cart":
+			$merchantid = $_GET['merchantid'];
+			$customer_id = $_GET['customer_id'];
+			$query = "INSERT INTO `deal_addto_cart` (`customer_id`,`merchant_id` ,`date_time`) VALUES ('".$customer_id."' ,'".$merchantid."' ,'".date('Y-m-d H:m:s')."'  ) "; 
 			packupAndSend_register($query,$link);	
 		break;
 		
@@ -519,7 +627,16 @@
 		break;	
 	}
 	mysqli_close($link);
-	  
+	
+	function get_total_reedem($merchantid,$customer_id,$link){
+		$query1 = " SELECT do.* from   deal_order do
+					INNER join deal_deals dd on dd.deal_id = do.deal_id  
+					INNER join deal_merchant dm on dm.merchant_id = dd.merchant_id and dm.merchant_id = '".$merchantid."'
+					where customer_id =  '".$customer_id."'  ";
+		$result =  $link->query($query1) or die('Errant query:  '.$query1);	
+		$num_rows = $result->num_rows;
+		return $num_rows;
+	}
 	function packupAndSend($query,$link)
 	{
 		$result =  $link->query($query) or die('Errant query:  '.$query);	

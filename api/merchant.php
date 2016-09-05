@@ -105,7 +105,17 @@
 				}
 				$bikes[] = array('responsecode' => '1', 'message' => 'success', 'userid' => $usersid, 'username' => $usersname);
 			} else {
-				$bikes[] = array('responsecode' => '0', 'message' => 'failed' , 'userid' => null, 'username' => null);
+				
+				$queryemail = "SELECT * from deal_merchant where merchant_email = '".$email."'    "; 
+				$resulet =  $link->query($queryemail) or die('Errant query:  '.$queryemail);	
+				$bikes = array();
+				$num_rowse = $resulet->num_rows;
+				if($num_rowse > 0) {
+					$bikes[] = array('responsecode' => '0', 'message' => 'Wrong password' , 'userid' => null, 'username' => null);
+				}else{
+					$bikes[] = array('responsecode' => '0', 'message' => 'New here? Sign Up' , 'userid' => null, 'username' => null);
+				}
+				
 			}
 			header('Content-type: application/json');
 			echo json_encode(array('data'=>$bikes));		
@@ -179,12 +189,22 @@
 		case "changepassword":
 			$id = $_GET['id'];
 			$pass = $_GET['password'];	
-			$query = "UPDATE deal_merchant SET merchant_password= '".$pass."'  WHERE merchant_id= '".$id."' ";
-			$result =  $link->query($query) or die('Errant query:  '.$query);	
-			$bikes = array();
-			$bikes[] = 'PASSWORD UPDATE SUCCESSFULLY';
-			header('Content-type: application/json');
-			echo json_encode(array('data'=>$bikes));
+			$curr_pass = $_GET['curr_pass'];
+			$query1 = " SELECT * from deal_merchant where merchant_id = '".$id."' and merchant_password = '".$curr_pass."'";
+			$result1 =  $link->query($query1) or die('Errant query:  '.$query1);
+			if($result1->num_rows > 0){	 
+				$query = "UPDATE deal_merchant SET merchant_password= '".$pass."'  WHERE merchant_id= '".$id."' ";
+				$result =  $link->query($query) or die('Errant query:  '.$query);	
+				$bikes = array();
+				$bikes[] = 'PASSWORD UPDATE SUCCESSFULLY';
+				header('Content-type: application/json');
+				echo json_encode(array('data'=>$bikes));
+			}else{
+				$bikes = array();
+				$bikes[] = 'YOUR CURRENT PASSWORD IS WRONG';
+				header('Content-type: application/json');
+				echo json_encode(array('data'=>$bikes));
+			}
 		break;
 		
 		
@@ -197,10 +217,15 @@
 			$shop_email = $_GET['shop_email'];
 			$shop_mobile = $_GET['shop_mobile'];
  			//$shop_add = $_GET['shop_add'];
-			$shop_city = $_GET['shop_city'];
-			$shop_state = $_GET['shop_state'];
+			$countryid = getcountry_id($_GET['shop_country'],$link);
+			$stateid = getstate_id($_GET['shop_state'],$link);
+			$cityid = getcity_id($_GET['shop_city'],$link);
+			$shop_country = $countryid;
+			$shop_state = $stateid;
+			$shop_city = $cityid;
+			
 			$shop_zip = $_GET['shop_zip'];
-			$shop_country = $_GET['shop_country'];
+			
 			
 			$query = "INSERT INTO `deal_merchantshops` (`merchant_id`, `shop_name`, `shop_addres`, `shop_latitude`, `shop_longitude`, `shop_email`, `shop_mobile`, `shop_city`, `shop_state`, `shop_zip`, `shop_country`, `added_date`) VALUES ('".$id."', '".$name."' , '".$shop_addres."' , '".$shop_latitude."' , '".$shop_longitude."' , '".$shop_email."' , '".$shop_mobile."' , '".$shop_city."' , '".$shop_state."' , '".$shop_zip."' , '".$shop_country."' , '".date("Y-m-d")."');";
 			
@@ -230,10 +255,16 @@
 			$shop_email = $_GET['shop_email'];
 			$shop_mobile = $_GET['shop_mobile'];
  			//$shop_add = $_GET['shop_add'];
-			$shop_city = $_GET['shop_city'];
-			$shop_state = $_GET['shop_state'];
+			$countryid = getcountry_id($_GET['shop_country'],$link);
+			$stateid = getstate_id($_GET['shop_state'],$link);
+			$cityid = getcity_id($_GET['shop_city'],$link);
+			
+			$shop_country = $countryid;
+			$shop_state = $stateid;
+			$shop_city = $cityid;
+			
 			$shop_zip = $_GET['shop_zip'];
-			$shop_country = $_GET['shop_country'];
+			
 			
 			$query = "UPDATE deal_merchantshops SET shop_name='".$name."',shop_addres='".$shop_addres."',shop_latitude='".$shop_latitude."',shop_longitude='".$shop_longitude."',shop_email='".$shop_email."',shop_mobile='".$shop_mobile."',shop_city='".$shop_city."',shop_state='".$shop_state."',shop_zip='".$shop_zip."',shop_country='".$shop_country."'  WHERE shop_id= '".$id."' ";
 			//echo $query; die;
@@ -244,6 +275,8 @@
 			header('Content-type: application/json');
 			echo json_encode(array('data'=>$bikes));
 		break; 
+		
+		 
 		
 		case "adddeal":
 			$merchant_id = $_GET['merchant_id'];
@@ -308,6 +341,79 @@
 			packupAndSend($query,$link);		
 		break;
 		
+		
+		case "addloyalty":
+			$id = $_GET['merchantid'];
+			$shop = $_GET['shop_id'];
+			$loyalty_name = $_GET['loyalty_name'];
+			$no_of_pins = $_GET['noofpins']; 
+			
+			$query_shop = "SELECT * from deal_loyalty where find_in_set( ".$shop." ,shops  )";
+			$result_shop =  $link->query($query_shop) or die('Errant query:  '.$query_shop); 
+			if($result_shop->num_rows > 0){
+				
+				$bikes[] = '0';
+				header('Content-type: application/json');
+				echo json_encode(array('data'=>$bikes));
+				
+			}else{
+				$query = "INSERT INTO `deal_loyalty` (`merchant_id`, `shops`, `loyalty_name`, `no_of_pins` ) VALUES ('".$id."', '".$shop."' , '".$loyalty_name."' , '".$no_of_pins."');";
+				 
+				$result =  $link->query($query) or die('Errant query:  '.$query); 
+				$bikes = array();
+				$bikes[] = 'LOYALTY CREATE SUCCESSFULLY';
+				header('Content-type: application/json');
+				echo json_encode(array('data'=>$bikes));
+				
+			}
+			
+		break;
+		
+		case "editloyalty":
+			$id=$_GET['id'];
+			$merchant_id = $_GET['merchantid'];
+			$shop_id = $_GET['shop_id'];
+			$loyalty_name = $_GET['loyalty_name'];
+			$no_of_pins = $_GET['noofpins']; 
+			
+			$query = "UPDATE `deal_loyalty` SET merchant_id='".$merchant_id."',shops='".$shop_id."',loyalty_name='".$loyalty_name."',no_of_pins='".$no_of_pins."'   WHERE loyalty_id= '".$id."' ";
+			
+			$result =  $link->query($query) or die('Errant query:  '.$query); 
+			$bikes = array();
+			$bikes[] = 'LOYALTY UPDATED SUCCESSFULLY';
+			header('Content-type: application/json');
+			echo json_encode(array('data'=>$bikes));
+		break;
+		
+		case "my_loyalty":
+			$id = $_GET['id'];
+ 			$query = " SELECT * from deal_loyalty where merchant_id = '".$id."' ";
+			$result =  $link->query($query) or die('Errant query:  '.$query);
+			$bikes = array();
+			if($result->num_rows > 0){
+				 
+				while($roee = $result->fetch_assoc()){
+					$asd['loyalty_id'] = $roee['loyalty_id'];
+					$asd['merchant_id'] = $roee['merchant_id'];
+					$asd['shopsid'] = $roee['shops'];
+					if($asd['shopsid']){
+						$shop = explode(',',$asd['shopsid']); 
+						foreach($shop as $key=>$val){ 
+ 							$name[]= get_shop_name($val,$link); 
+ 						}
+						$shopnames = implode(',',$name); 
+					}
+					$asd['shops'] = $shopnames;
+					$asd['loyalty_name'] = $roee['loyalty_name'];
+					$asd['no_of_pins'] = $roee['no_of_pins'];
+					array_push($bikes,$asd);
+					$name  = null;
+				}
+			}
+			header('Content-type: application/json');
+			echo json_encode(array('data'=>$bikes));	 	
+		break;
+		
 		case "my_account":
 			$id = $_GET['id'];
  			$query = " SELECT * from deal_merchant where merchant_id = '".$id."' ";
@@ -326,27 +432,52 @@
 		
 		case "active_my_deal":
 			$merchantid = $_GET['merchantid'];
-			$query = " SELECT d.*,dc.category_name,ds.subcategory_name,dm.merchant_name,ms.shop_name,( select COUNT(do.deal_id) as count_redeem from deal_order do where do.deal_id = d.deal_id  )  as count_redeem from deal_deals d 
+			$lat = $_GET['lat'];
+			$long = $_GET['long'];
+			if($lat!='' && $long!=''){
+				$query = " SELECT d.*,dc.category_name,ds.subcategory_name,dm.merchant_name,ms.shop_name,( select COUNT(do.deal_id) as count_redeem from deal_order do where do.deal_id = d.deal_id  )  as count_redeem,( 3959 * ACOS( COS( RADIANS($lat) ) * COS( RADIANS( ms.shop_latitude ) ) 
+			* COS( RADIANS(ms.shop_longitude) - RADIANS($long)) + SIN(RADIANS($lat)) 
+			* SIN( RADIANS(ms.shop_latitude)))) AS distance from deal_deals d 
 						left join deal_category dc on dc.category_id = d.deal_category
 						left join deal_subcategory ds on ds.subcategory_id = d.deal_subcategory
 						left join deal_merchant dm on dm.merchant_id = d.merchant_id
 						left join deal_merchantshops ms on ms.shop_id = d.shop_id
-						where d.deal_id <> 0 and d.is_active='1' and d.merchant_id = '".$merchantid."'  group by d.deal_id ";
-						
- 		//	$query = " SELECT * from deal_deals where deal_id <> 0  and merchant_id = '".$merchantid."' ";
+						where d.deal_id <> 0 and d.is_active='1' and d.deal_startdate <= NOW() and d.deal_enddate >= NOW()  and d.merchant_id = '".$merchantid."'  group by d.deal_id ";
+			}else{
+				$query = " SELECT d.*,dc.category_name,ds.subcategory_name,dm.merchant_name,ms.shop_name,( select COUNT(do.deal_id) as count_redeem from deal_order do where do.deal_id = d.deal_id  )  as count_redeem from deal_deals d 
+						left join deal_category dc on dc.category_id = d.deal_category
+						left join deal_subcategory ds on ds.subcategory_id = d.deal_subcategory
+						left join deal_merchant dm on dm.merchant_id = d.merchant_id
+						left join deal_merchantshops ms on ms.shop_id = d.shop_id
+						where d.deal_id <> 0 and d.is_active='1' and d.deal_startdate <= NOW() and d.deal_enddate >= NOW()  and d.merchant_id = '".$merchantid."'  group by d.deal_id ";
+			} 		
+			//$query = " SELECT * from deal_deals where deal_id <> 0  and merchant_id = '".$merchantid."' ";
 			packupAndSend($query,$link);		
 		break;
 		
 		
 		case "deactive_my_deal":
 			$merchantid = $_GET['merchantid'];
-			$query = " SELECT d.*,dc.category_name,ds.subcategory_name,dm.merchant_name,ms.shop_name,( select COUNT(do.deal_id) as count_redeem from deal_order do where do.deal_id = d.deal_id  )  as count_redeem from deal_deals d 
+			$lat = $_GET['lat'];
+			$long = $_GET['long'];
+			if($lat!='' && $long !='' ) {
+				$query = " SELECT d.*,dc.category_name,ds.subcategory_name,dm.merchant_name,ms.shop_name,( select COUNT(do.deal_id) as count_redeem from deal_order do where do.deal_id = d.deal_id  )  as count_redeem,( 3959 * ACOS( COS( RADIANS($lat) ) * COS( RADIANS( ms.shop_latitude ) ) 
+				* COS( RADIANS(ms.shop_longitude) - RADIANS($long)) + SIN(RADIANS($lat)) 
+				* SIN( RADIANS(ms.shop_latitude)))) AS distance from deal_deals d 
 						left join deal_category dc on dc.category_id = d.deal_category
 						left join deal_subcategory ds on ds.subcategory_id = d.deal_subcategory
 						left join deal_merchant dm on dm.merchant_id = d.merchant_id
 						left join deal_merchantshops ms on ms.shop_id = d.shop_id
-						where d.deal_id <> 0 and d.is_active='0' and d.merchant_id = '".$merchantid."' ";
- 		//	$query = " SELECT * from deal_deals where deal_id <> 0  and merchant_id = '".$merchantid."' ";
+						where d.deal_id <> 0 and  ( d.is_active='0' OR   d.deal_enddate <= NOW()  )  and d.merchant_id = '".$merchantid."' ";
+			}else{
+				$query = " SELECT d.*,dc.category_name,ds.subcategory_name,dm.merchant_name,ms.shop_name,( select COUNT(do.deal_id) as count_redeem from deal_order do where do.deal_id = d.deal_id  )  as count_redeem from deal_deals d 
+						left join deal_category dc on dc.category_id = d.deal_category
+						left join deal_subcategory ds on ds.subcategory_id = d.deal_subcategory
+						left join deal_merchant dm on dm.merchant_id = d.merchant_id
+						left join deal_merchantshops ms on ms.shop_id = d.shop_id
+						where d.deal_id <> 0 and  ( d.is_active='0' OR   d.deal_enddate <= NOW()  )  and d.merchant_id = '".$merchantid."' ";
+			} 
+			//$query = " SELECT * from deal_deals where deal_id <> 0  and merchant_id = '".$merchantid."' ";
 			packupAndSend($query,$link);		
 		break;
 		
@@ -405,13 +536,83 @@
 			//	$query = " SELECT * from deal_deals where deal_id <> 0  and merchant_id = '".$merchantid."' ";
 			//packupAndSend($query,$link);		
 		break;
+		case "country_list":
+			$countryname = $_GET['countryname'];
+			$query = " SELECT * from deal_country  where cid <> 0 ";
+			if($countryname!=''){
+				$query .=	" and cname like '%".$countryname."%' ";	
+			} 
+			packupAndSendCountry($query,$link);		
+		break;
+		
+		case "state_list":
+			$countryname = getcountry_id($_GET['countryid'],$link);
+			$statename = $_GET['statename'];
+			$query = " SELECT * from deal_state  where sid <> 0 ";
+			if($statename!=''){
+				$query .=	" and sname like '%".$statename."%' ";	
+			} 
+			if($countryname!=''){
+				$query .=	" and cid = '".$countryname."' ";	
+			} 
+			packupAndSendState($query,$link);		
+		break;
+		
+		case "city_list":
+			$countryname = $_GET['countryid'];
+			$statename = getstate_id($_GET['stateid'],$link);
+			$cityname = $_GET['cityname'];
+			$query = " SELECT * from deal_city  where sid <> 0 ";
+			if($cityname!=''){
+				$query .=	" and city_name like '%".$cityname."%' ";	
+			} 
+			if($countryname!=''){
+				$query .=	" and cid = '".$countryname."' ";	
+			} 
+			if($statename!=''){
+				$query .=	" and sid = '".$statename."' ";	
+			} 
+			packupAndSendCity($query,$link);		
+		break;
+		
 		case "my_shop":
 			$merchantid = $_GET['merchantid'];
 			$query = " SELECT d.*,  dm.merchant_name from deal_merchantshops d  
 						left join deal_merchant dm on dm.merchant_id = d.merchant_id 
 						where d.shop_id <> 0 and d.merchant_id = '".$merchantid."' "; 
-			packupAndSend($query,$link);		
+				
+			$result =  $link->query($query) or die('Errant query:  '.$query);	
+			$bikes = array();
+			$num_rows = $result->num_rows; 
+			if($result->num_rows > 0){               
+				while($roee = $result->fetch_assoc()){
+					$asd['shop_id'] = $roee['shop_id'];
+					$asd['merchant_id'] = $roee['merchant_id'];
+					$asd['shop_name'] = $roee['shop_name'];
+					$asd['shop_addres'] = $roee['shop_addres'];
+					$asd['shop_latitude'] = $roee['shop_latitude'];
+					$asd['shop_longitude'] = $roee['shop_longitude'];
+					$asd['shop_email'] = $roee['shop_email'];
+					$asd['shop_mobile'] = $roee['shop_mobile'];
+					$asd['qr_image'] = $roee['qr_image'];
+					$asd['shop_add'] = $roee['shop_add'];
+					
+					$asd['shop_country'] = getcountry_name($roee['shop_country'],$link);
+					$asd['shop_state'] = getstate_name($roee['shop_state'],$link);
+					$asd['shop_city'] = getcity_name($roee['shop_city'],$link);
+					
+					$asd['shop_zip'] = $roee['shop_zip'];
+					
+					$asd['is_active'] = $roee['is_active']; 
+					$asd['added_date'] = $roee['added_date'];
+					$asd['merchant_name'] = $roee['merchant_name']; 
+					array_push($bikes,$asd);
+				}
+			}
+			header('Content-type: application/json');
+			echo json_encode(array('data'=>$bikes)); 		
 		break;
+		
 		
 		
 		
@@ -515,7 +716,13 @@
 	mysqli_close($link);
 	 
 	 
-	 
+	function get_shop_name($shopid,$link){
+		$query1 = " SELECT * from   deal_merchantshops where shop_id =  '".$shopid."' ";
+		$result =  $link->query($query1) or die('Errant query:  '.$query1);	
+		$num_rows = $result->num_rows;
+		$bike = $result->fetch_assoc(); 
+		return $bike['shop_name'];
+	}
 	 
 	function packupAndSend($query,$link)
 	{
@@ -534,6 +741,66 @@
 		header('Content-type: application/json');
 		echo json_encode(array('data'=>$bikes));
 	}
+	
+	function packupAndSendCountry($query,$link)
+	{
+		$result =  $link->query($query) or die('Errant query:  '.$query);	
+		$bikeq = array();
+		$num_rows = $result->num_rows;
+		if($num_rows>0) 
+		{
+			while($bike = $result->fetch_assoc())
+			{
+				$bikes['name'] = $bike['cname'];
+				$bikes['id'] = $bike['cid'];
+				array_push($bikeq,$bikes);
+			}
+		} else {
+			$bikeq = array();
+		}
+		header('Content-type: application/json');
+		echo json_encode(array('data'=>$bikeq));
+	}
+	function packupAndSendState($query,$link)
+	{
+		$result =  $link->query($query) or die('Errant query:  '.$query);	
+		$bikeq = array();
+		$num_rows = $result->num_rows;
+		if($num_rows>0) 
+		{
+			while($bike = $result->fetch_assoc())
+			{
+				$bikes['name'] = $bike['sname'];
+				$bikes['id'] = $bike['sid'];
+				array_push($bikeq,$bikes);
+			}
+		} else {
+			$bikeq = array();
+		}
+		header('Content-type: application/json');
+		echo json_encode(array('data'=>$bikeq));
+	}
+	function packupAndSendCity($query,$link)
+	{
+		$result =  $link->query($query) or die('Errant query:  '.$query);	
+		$bikeq = array();
+		$num_rows = $result->num_rows;
+		if($num_rows>0) 
+		{
+			while($bike = $result->fetch_assoc())
+			{
+				$bikes['name'] = $bike['city_name'];
+				$bikes['id'] = $bike['sid'];
+				array_push($bikeq,$bikes);
+			}
+		} else {
+			$bikeq = array();
+		}
+		header('Content-type: application/json');
+		echo json_encode(array('data'=>$bikeq));
+	}
+
+	
 	
 	function packupAndSend_register($query,$link)
 	{
@@ -558,6 +825,50 @@
  		$bikes = 'DATA DELETE SUCCESSFULLY';
 		header('Content-type: application/json');
 		echo json_encode(array('data'=>$bikes));
+	}
+	
+	function getcountry_id($name,$link)
+	{
+		$query = "SELECT * FROM `deal_country` WHERE `cname` = '".$name."' ";	
+		$result =  $link->query($query) or die('Errant query:  '.$query);	
+ 		$bikes = $result->fetch_assoc();
+		return $bikes['cid'];
+	}
+	function getstate_id($name,$link)
+	{
+		$query = "SELECT * FROM `deal_state` WHERE `sname` = '".$name."' ";	
+		$result =  $link->query($query) or die('Errant query:  '.$query);	
+ 		$bikes = $result->fetch_assoc();
+		return $bikes['sid'];
+	}
+	function getcity_id($name,$link)
+	{
+		$query = "SELECT * FROM `deal_city` WHERE `city_name` = '".$name."' ";	
+		$result =  $link->query($query) or die('Errant query:  '.$query);	
+ 		$bikes = $result->fetch_assoc();
+		return $bikes['city_id'];
+	}
+	
+	function getcountry_name($id,$link)
+	{
+		$query = "SELECT * FROM `deal_country` WHERE `cid` = '".$id."' ";	
+		$result =  $link->query($query) or die('Errant query:  '.$query);	
+ 		$bikes = $result->fetch_assoc();
+		return $bikes['cname'];
+	}
+	function getstate_name($id,$link)
+	{
+		$query = "SELECT * FROM `deal_state` WHERE `sid` = '".$id."' ";	
+		$result =  $link->query($query) or die('Errant query:  '.$query);	
+ 		$bikes = $result->fetch_assoc();
+		return $bikes['sname'];
+	}
+	function getcity_name($id,$link)
+	{
+		$query = "SELECT * FROM `deal_city` WHERE `city_id` = '".$id."' ";	
+		$result =  $link->query($query) or die('Errant query:  '.$query);	
+ 		$bikes = $result->fetch_assoc();
+		return $bikes['city_name'];
 	}
 	
 ?>
